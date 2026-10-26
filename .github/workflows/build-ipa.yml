@@ -46,6 +46,10 @@ jobs:
           mkdir -p Payload
           cp -R build/Release-iphoneos/CubicRemote.app Payload/
           zip -qry CubicRemote.ipa Payload
+          echo "::notice::app contents: $(ls -la Payload/CubicRemote.app | tr '\n' ' ')"
+          echo "::notice::binary: $(file Payload/CubicRemote.app/CubicRemote) size $(stat -f%z Payload/CubicRemote.app/CubicRemote)"
+          echo "::notice::ipa size $(stat -f%z CubicRemote.ipa)"
+          echo "::notice::plist keys: $(plutil -p Payload/CubicRemote.app/Info.plist | tr '\n' ' ' | cut -c1-900)"
 
       - name: Upload IPA
         uses: actions/upload-artifact@v5
