@@ -9,10 +9,15 @@ targets:
   CubicRemote:
     type: application
     platform: iOS
+    # List the files one by one: XcodeGen treats a folder named *.swiftpm as a
+    # single resource and would not compile anything inside it.
     sources:
-      - path: CubicRemote.swiftpm
-        excludes:
-          - "Package.swift"
+      - CubicRemote.swiftpm/MyApp.swift
+      - CubicRemote.swiftpm/ContentView.swift
+      - CubicRemote.swiftpm/CameraModel.swift
+      - CubicRemote.swiftpm/PTPIP.swift
+      - CubicRemote.swiftpm/LiveView.swift
+      - CubicRemote.swiftpm/Sockets.swift
     info:
       path: Generated/Info.plist
       properties:

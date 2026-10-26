@@ -35,7 +35,7 @@ jobs:
           grep -E "error:|fatal|BUILD FAILED|xcodebuild: error" build.log | sort -u | head -40 | while IFS= read -r line; do
             echo "::error::$line"
           done
-          if [ $status -ne 0 ] || [ ! -d build/Release-iphoneos/CubicRemote.app ]; then
+          if [ $status -ne 0 ] || [ ! -f build/Release-iphoneos/CubicRemote.app/CubicRemote ]; then
             tail -40 build.log | while IFS= read -r line; do echo "::warning::$line"; done
             exit 1
           fi
