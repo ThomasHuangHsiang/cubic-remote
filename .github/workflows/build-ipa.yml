@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-15
@@ -50,6 +53,16 @@ jobs:
           echo "::notice::binary: $(file Payload/CubicRemote.app/CubicRemote) size $(stat -f%z Payload/CubicRemote.app/CubicRemote)"
           echo "::notice::ipa size $(stat -f%z CubicRemote.ipa)"
           echo "::notice::plist keys: $(plutil -p Payload/CubicRemote.app/Info.plist | tr '\n' ' ' | cut -c1-900)"
+
+      - name: Publish to the "latest" release (easy download on iPhone)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag 2>/dev/null || true
+          gh release create latest CubicRemote.ipa \
+            --title "Cubic Remote（最新版）" \
+            --notes "自動編譯於 ${{ github.sha }}。在 iPhone 上下載 CubicRemote.ipa，再用 AltStore 安裝。" \
+            --target "${{ github.sha }}"
 
       - name: Upload IPA
         uses: actions/upload-artifact@v5
