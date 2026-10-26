@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cubic Remote</title>
+<style>
+  :root {
+    --bg: #101214; --panel: #181b1f; --panel2: #20242a; --line: #2c3138;
+    --text: #e8eaed; --dim: #8b929b; --accent: #4fc3c8; --rec: #ff4d4f; --ok: #5ccf7a; --warn: #f0b429;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 15px/1.45 -apple-system, "Segoe UI", "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif; }
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; }
+  button:disabled { opacity: .4; cursor: default; }
+  .app { display: grid; grid-template-columns: 1fr 340px; grid-template-rows: auto 1fr; height: 100vh; }
+  header { grid-column: 1 / -1; display: flex; align-items: center; gap: 18px; padding: 10px 18px;
+    border-bottom: 1px solid var(--line); background: var(--panel); }
+  .brand { font-weight: 700; letter-spacing: .02em; }
+  .brand span { color: var(--accent); }
+  .stat { display: flex; align-items: center; gap: 6px; color: var(--dim); font-size: 13px; white-space: nowrap; }
+  .stat b { color: var(--text); font-weight: 600; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--dim); }
+  .dot.connected { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .dot.connecting { background: var(--warn); animation: blink 1s infinite; }
+  .dot.error { background: var(--rec); }
+  @keyframes blink { 50% { opacity: .3; } }
+  .spacer { flex: 1; }
+  .btn { background: var(--panel2); border: 1px solid var(--line); padding: 7px 14px; border-radius: 10px; }
+  .btn:hover:not(:disabled) { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); color: #062326; border-color: var(--accent); font-weight: 600; }
+
+  main { display: flex; flex-direction: column; min-height: 0; padding: 16px; gap: 14px; }
+  .viewer { position: relative; flex: 1; min-height: 0; background: #000; border-radius: var(--radius);
+    overflow: hidden; display: flex; align-items: center; justify-content: center; }
+  .viewer img#live { max-width: 100%; max-height: 100%; display: block; }
+  .viewer.touch img#live { cursor: crosshair; }
+  .placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 12px; color: var(--dim); text-align: center; padding: 24px; }
+  .placeholder h2 { margin: 0; color: var(--text); font-weight: 600; }
+  .placeholder ol { text-align: left; margin: 4px 0 8px; line-height: 1.9; }
+  .rec-badge { position: absolute; top: 14px; left: 14px; background: rgba(0,0,0,.6); padding: 4px 10px;
+    border-radius: 8px; font-variant-numeric: tabular-nums; display: none; align-items: center; gap: 8px; }
+  .rec-badge::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--rec); animation: blink 1s infinite; }
+  .mode-badge { position: absolute; top: 14px; right: 14px; background: rgba(0,0,0,.55); padding: 4px 10px;
+    border-radius: 8px; font-size: 13px; }
+  .last { position: absolute; left: 14px; bottom: 14px; width: 96px; aspect-ratio: 4/3; border-radius: 10px;
+    border: 2px solid rgba(255,255,255,.8); overflow: hidden; display: none; background: #222; }
+  .last img { width: 100%; height: 100%; object-fit: cover; }
+  .flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity .25s; }
+  .focus { position: absolute; width: 70px; height: 70px; border: 2px solid var(--accent); border-radius: 6px;
+    transform: translate(-50%, -50%); pointer-events: none; display: none; }
+
+  .controls { display: flex; align-items: center; justify-content: center; gap: 28px; }
+  .zoom { display: flex; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+  .zoom button { width: 64px; height: 48px; background: transparent; font-weight: 700; font-size: 17px; user-select: none; touch-action: none; }
+  .zoom button:active:not(:disabled), .zoom button.held { background: var(--accent); color: #062326; }
+  .zoom button + button { border-left: 1px solid var(--line); }
+  .shutter { width: 78px; height: 78px; border-radius: 50%; background: transparent; border: 4px solid #fff;
+    display: grid; place-items: center; }
+  .shutter i { width: 60px; height: 60px; border-radius: 50%; background: #fff; transition: all .15s; }
+  .shutter:active:not(:disabled) i { transform: scale(.9); }
+  .shutter.video i { background: var(--rec); }
+  .shutter.video.recording i { width: 30px; height: 30px; border-radius: 6px; }
+  .modes { display: flex; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 4px; }
+  .modes button { padding: 8px 16px; border-radius: 999px; background: transparent; color: var(--dim); }
+  .modes button.on { background: var(--panel2); color: var(--text); }
+
+  aside { border-left: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
+  .tabs { display: flex; border-bottom: 1px solid var(--line); }
+  .tabs button { flex: 1; padding: 12px 0; background: transparent; color: var(--dim); border-bottom: 2px solid transparent; }
+  .tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+  .pane { flex: 1; overflow: auto; padding: 14px 16px; display: none; }
+  .pane.on { display: block; }
+  .setting { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .setting label { display: block; font-size: 13px; color: var(--dim); margin-bottom: 7px; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg button { padding: 6px 11px; border-radius: 8px; background: var(--panel2); border: 1px solid var(--line); font-size: 13px; }
+  .seg button.on { border-color: var(--accent); color: var(--accent); }
+  .danger { margin-top: 18px; color: var(--rec); border-color: #5a2a2c; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .file { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-size: 12px; }
+  .file .th { aspect-ratio: 4/3; background: #000; display: grid; place-items: center; color: var(--dim); }
+  .file img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .file .meta { padding: 6px 8px; display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+  .file .meta a, .file .meta button { color: var(--accent); background: none; padding: 0 2px; text-decoration: none; font-size: 12px; }
+  .file .meta button.del { color: var(--rec); }
+  .log { font: 12px/1.6 ui-monospace, Menlo, Consolas, monospace; color: var(--dim); white-space: pre-wrap; word-break: break-all; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #2a1416; color: #ffb3b5;
+    border: 1px solid #5a2a2c; padding: 10px 16px; border-radius: 10px; display: none; max-width: 90vw; z-index: 9; }
+  .muted { color: var(--dim); font-size: 13px; }
+
+  @media (max-width: 860px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: auto auto auto; height: auto; }
+    main { padding: 12px; }
+    .viewer { min-height: 56vw; flex: none; }
+    aside { border-left: 0; border-top: 1px solid var(--line); min-height: 60vh; }
+    header { flex-wrap: wrap; gap: 10px 14px; }
+    .controls { gap: 16px; flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">Cubic <span>Remote</span></div>
+    <div class="stat"><div class="dot" id="dot"></div><b id="state">未連線</b></div>
+    <div class="stat">電量 <b id="battery">–</b></div>
+    <div class="stat">可拍 <b id="left">–</b></div>
+    <div class="stat">韌體 <b id="fw">–</b></div>
+    <div class="spacer"></div>
+    <button class="btn" id="refresh">重新整理</button>
+    <button class="btn primary" id="connect">連線</button>
+  </header>
+
+  <main>
+    <div class="viewer" id="viewer">
+      <img id="live" alt="">
+      <div class="placeholder" id="ph">
+        <h2>尚未連線到相機</h2>
+        <ol>
+          <li>打開 Cubic 電源</li>
+          <li>電腦連上相機的 Wi-Fi（名稱以 <b>Cubic</b> 開頭）</li>
+          <li>按右上角「連線」</li>
+        </ol>
+        <div class="muted" id="phErr"></div>
+        <div class="muted" id="lvStat"></div>
+        <div style="display:flex;gap:8px"><button class="btn" id="restartLv" style="display:none">重新啟動預覽</button>
+        <a class="btn" id="diagLink" href="/api/livediag" target="_blank" style="display:none;text-decoration:none">診斷資訊</a></div>
+      </div>
+      <div class="rec-badge" id="rec">00:00</div>
+      <div class="mode-badge" id="modeBadge">拍照</div>
+      <div class="focus" id="focus"></div>
+      <a class="last" id="last" href="/last.jpg" target="_blank"><img id="lastImg" alt="最後一張"></a>
+      <div class="flash" id="flash"></div>
+    </div>
+    <div class="controls">
+      <div class="zoom">
+        <button id="wide" title="廣角（按住）">W</button>
+        <button id="tele" title="望遠（按住）">T</button>
+      </div>
+      <button class="shutter" id="shutter" title="快門 (空白鍵)"><i></i></button>
+      <div class="modes">
+        <button id="mPhoto" class="on">拍照</button>
+        <button id="mVideo">錄影</button>
+      </div>
+    </div>
+  </main>
+
+  <aside>
+    <div class="tabs">
+      <button data-tab="settings" class="on">設定</button>
+      <button data-tab="gallery">相簿</button>
+      <button data-tab="log">紀錄</button>
+    </div>
+    <div class="pane on" id="settings"><div id="settingList" class="muted">連線後顯示</div>
+      <button class="btn danger" id="format">格式化記憶卡</button>
+    </div>
+    <div class="pane" id="gallery">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <span class="muted" id="fileCount"></span><button class="btn" id="loadFiles">載入檔案</button>
+      </div>
+      <div class="grid" id="files"></div>
+    </div>
+    <div class="pane" id="log"><div class="log" id="logText"></div></div>
+  </aside>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let S = null, liveOn = false, lastShotNo = 0, settingsBuilt = false;
+
+async function api(path, body) {
+  const r = await fetch(path, body === undefined ? {} : { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.error) { toast(j.error || r.statusText); throw new Error(j.error); }
+  return j;
+}
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 4000); }
+
+const STATE_TXT = { disconnected: '未連線', connecting: '連線中…', connected: '已連線', error: '連線失敗' };
+
+async function poll() {
+  try { S = await api('/api/status'); render(); } catch (e) {}
+  setTimeout(poll, 1000);
+}
+
+function render() {
+  const c = S.state === 'connected';
+  $('dot').className = 'dot ' + S.state;
+  $('state').textContent = STATE_TXT[S.state] || S.state;
+  $('battery').textContent = c ? S.info.battery + '%' : '–';
+  $('left').textContent = c ? (S.video_mode ? fmtTime(S.info.video_left ?? 0) : S.info.photos_left + ' 張') : '–';
+  $('fw').textContent = c ? S.info.firmware : '–';
+  $('connect').textContent = c ? '中斷' : '連線';
+  $('connect').disabled = S.state === 'connecting';
+  $('phErr').textContent = S.error ? '錯誤：' + S.error : '';
+  for (const id of ['shutter', 'wide', 'tele', 'mPhoto', 'mVideo', 'refresh', 'loadFiles', 'format']) $(id).disabled = !c;
+
+  if (c && !liveOn) { $('live').src = '/stream.mjpg?' + Date.now(); liveOn = true; }
+  if (!c && liveOn) { $('live').removeAttribute('src'); liveOn = false; }
+  $('ph').style.display = c && S.live ? 'none' : 'flex';
+  const st = S.lv_stats, waiting = c && !S.live;
+  $('restartLv').style.display = $('diagLink').style.display = waiting ? '' : 'none';
+  $('lvStat').textContent = '';
+  if (waiting) {
+    $('ph').querySelector('h2').textContent = '已連線，等待即時畫面…';
+    $('ph').querySelector('ol').style.display = 'none';
+    if (!st) $('lvStat').textContent = '預覽沒有啟動，請按「重新啟動預覽」';
+    else if (st.packets === 0) $('lvStat').textContent = '電腦完全沒收到相機的畫面封包：多半是防火牆擋住了 UDP 65362';
+    else $('lvStat').textContent = `已收到 ${st.packets} 個封包（非 JPEG ${st.non_jpeg}），組成 ${st.frames} 張、丟棄 ${st.dropped} 張`;
+  }
+  else if (!c) { $('ph').querySelector('h2').textContent = S.state === 'connecting' ? '連線中…' : '尚未連線到相機'; $('ph').querySelector('ol').style.display = ''; }
+
+  $('mPhoto').classList.toggle('on', !S.video_mode);
+  $('mVideo').classList.toggle('on', S.video_mode);
+  $('modeBadge').textContent = S.video_mode ? '錄影' : '拍照';
+  $('shutter').classList.toggle('video', S.video_mode);
+  $('shutter').classList.toggle('recording', S.recording);
+  $('rec').style.display = S.recording ? 'flex' : 'none';
+  $('rec').textContent = fmtTime(S.rec_seconds) + (S.rec_limit ? ' / ' + fmtTime(S.rec_limit) : '');
+  $('viewer').classList.toggle('touch', c && S.values.touch === 1);
+
+  if (S.last_shot_no !== lastShotNo) {
+    lastShotNo = S.last_shot_no;
+    if (lastShotNo) { $('lastImg').src = '/last.jpg?' + lastShotNo; $('last').style.display = 'block'; }
+  }
+  if (c && !settingsBuilt) buildSettings();
+  if (c) syncSettings();
+  if (!c) settingsBuilt = false;
+  if ($('log').classList.contains('on')) loadLog();
+}
+
+function fmtTime(s) { s = Math.max(0, s | 0); return String(s / 60 | 0).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
+
+function buildSettings() {
+  const box = $('settingList'); box.innerHTML = ''; box.classList.remove('muted');
+  for (const s of S.settings) {
+    const row = document.createElement('div'); row.className = 'setting';
+    row.innerHTML = `<label>${s.label}</label><div class="seg"></div>`;
+    for (const [v, txt] of s.options) {
+      const b = document.createElement('button'); b.textContent = txt; b.dataset.key = s.key; b.dataset.v = v;
+      b.onclick = async () => { await api('/api/setting', { key: s.key, value: v }); S.values[s.key] = v; syncSettings(); };
+      row.querySelector('.seg').appendChild(b);
+    }
+    box.appendChild(row);
+  }
+  settingsBuilt = true;
+}
+function syncSettings() {
+  document.querySelectorAll('#settingList .seg button').forEach(b => b.classList.toggle('on', String(S.values[b.dataset.key]) === b.dataset.v));
+}
+
+// ---- actions
+$('connect').onclick = () => api(S && S.state === 'connected' ? '/api/disconnect' : '/api/connect', {});
+$('refresh').onclick = () => api('/api/refresh', {});
+$('restartLv').onclick = () => api('/api/restartlive', {});
+
+let shutterBusy = false;
+async function shutter() {
+  if ($('shutter').disabled || shutterBusy) return;   // ignore double clicks while the camera is working
+  shutterBusy = true; $('shutter').style.opacity = .5;
+  try {
+    if (S.video_mode) { await api('/api/record', {}); }
+    else {
+      const f = $('flash'); f.style.opacity = .7; setTimeout(() => f.style.opacity = 0, 120);
+      await api('/api/shoot', {});
+    }
+    S = await api('/api/status'); render();
+  } catch (e) {} finally { shutterBusy = false; $('shutter').style.opacity = ''; }
+}
+$('shutter').onclick = shutter;
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.code === 'Space') { e.preventDefault(); shutter(); }
+});
+
+function holdZoom(btn, tele) {
+  let held = false;
+  const down = e => { e.preventDefault(); if (btn.disabled || held) return; held = true; btn.classList.add('held'); api('/api/zoom', { tele, press: true }); };
+  const up = () => { if (!held) return; held = false; btn.classList.remove('held'); api('/api/zoom', { tele, press: false }); };
+  btn.addEventListener('pointerdown', down);
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) btn.addEventListener(ev, up);
+}
+holdZoom($('wide'), false); holdZoom($('tele'), true);
+
+$('mPhoto').onclick = () => api('/api/mode', { video: false });
+$('mVideo').onclick = () => api('/api/mode', { video: true });
+
+$('live').addEventListener('click', async e => {
+  if (!S || S.state !== 'connected' || S.values.touch !== 1 || S.video_mode) return;
+  const img = e.target, r = img.getBoundingClientRect();
+  const x = (e.clientX - r.left) * img.naturalWidth / r.width, y = (e.clientY - r.top) * img.naturalHeight / r.height;
+  const fr = $('focus'), vr = $('viewer').getBoundingClientRect();
+  fr.style.left = (e.clientX - vr.left) + 'px'; fr.style.top = (e.clientY - vr.top) + 'px'; fr.style.display = 'block';
+  setTimeout(() => fr.style.display = 'none', 900);
+  await api('/api/touch', { x: Math.round(x), y: Math.round(y) });
+});
+
+$('format').onclick = async () => {
+  if (!confirm('確定要格式化記憶卡？卡上所有照片和影片都會被刪除，無法復原。')) return;
+  await api('/api/format', {});
+};
+
+// ---- tabs
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.id === b.dataset.tab));
+  if (b.dataset.tab === 'log') loadLog();
+});
+
+async function loadLog() {
+  const lines = await (await fetch('/api/log')).json();
+  const el = $('logText'), atBottom = el.parentElement.scrollTop + el.parentElement.clientHeight >= el.parentElement.scrollHeight - 20;
+  el.textContent = lines.join('\n');
+  if (atBottom) el.parentElement.scrollTop = el.parentElement.scrollHeight;
+}
+
+$('loadFiles').onclick = async () => {
+  $('fileCount').textContent = '讀取中…';
+  const files = await api('/api/files');
+  $('fileCount').textContent = `共 ${files.length} 個檔案`;
+  const grid = $('files'); grid.innerHTML = '';
+  for (const f of files) {
+    const d = document.createElement('div'); d.className = 'file';
+    const kb = !f.size ? '' : f.size >= 1048576 ? (f.size / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(f.size / 1024)) + ' KB';
+    d.innerHTML = `<div class="th">…</div><div class="meta"><span title="${f.name}">${f.name}<br><span class="muted">${kb}</span></span>
+      <span><a href="/api/file/${f.handle}" download="${f.name}">下載</a> <button class="del">刪除</button></span></div>`;
+    grid.appendChild(d);
+    d.querySelector('.del').onclick = async () => {
+      if (!confirm(`刪除 ${f.name}？`)) return;
+      await api('/api/delete/' + f.handle, {}); d.remove();
+    };
+  }
+  // load thumbnails one at a time (the camera handles one request at a time)
+  const ths = grid.querySelectorAll('.th');
+  for (let i = 0; i < ths.length; i++) {
+    const f = files[i];
+    await new Promise(res => { const im = new Image(); im.onload = () => { ths[i].innerHTML = ''; ths[i].appendChild(im); res(); };
+      im.onerror = () => { ths[i].textContent = f.name.split('.').pop(); res(); }; im.src = '/api/thumb/' + f.handle; });
+  }
+};
+
+poll();
+</script>
+</body>
+</html>

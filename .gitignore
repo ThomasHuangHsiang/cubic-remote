@@ -1,0 +1,7 @@
+build/
+Generated/
+*.xcodeproj/
+Payload/
+*.ipa
+__pycache__/
+photos/

@@ -1,0 +1,45 @@
+# XcodeGen spec: builds the same Swift sources as the Swift Playgrounds project
+# into a regular iOS app (used by the GitHub Actions build).
+name: CubicRemote
+options:
+  bundleIdPrefix: tw.thomas
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  CubicRemote:
+    type: application
+    platform: iOS
+    sources:
+      - path: CubicRemote.swiftpm
+        excludes:
+          - "Package.swift"
+    info:
+      path: Generated/Info.plist
+      properties:
+        CFBundleDisplayName: Cubic Remote
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSLocalNetworkUsageDescription: 連線到 Cubic 相機，用來遙控拍照和即時預覽
+        NSPhotoLibraryAddUsageDescription: 把相機裡的照片和影片存到「照片」
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: tw.thomas.cubicremote
+        PRODUCT_NAME: CubicRemote
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGN_IDENTITY: ""
